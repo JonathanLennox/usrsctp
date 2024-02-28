@@ -32,11 +32,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__FreeBSD__) && !defined(__Userspace__)
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-#endif
-
 #include <netinet/sctp_os.h>
 #if defined(__FreeBSD__) && !defined(__Userspace__)
 #include <sys/proc.h>
@@ -2797,6 +2792,7 @@ sctp_inpcb_alloc(struct socket *so, uint32_t vrf_id)
 	inp->nrsack_supported = (uint8_t)SCTP_BASE_SYSCTL(sctp_nrsack_enable);
 	inp->pktdrop_supported = (uint8_t)SCTP_BASE_SYSCTL(sctp_pktdrop_enable);
 	inp->idata_supported = 0;
+	inp->rcv_edmid = SCTP_EDMID_NONE;
 
 #if defined(__FreeBSD__) && !defined(__Userspace__)
 	inp->fibnum = so->so_fibnum;
@@ -2920,7 +2916,7 @@ sctp_inpcb_alloc(struct socket *so, uint32_t vrf_id)
 	rw_init_flags(&inp->ip_inp.inp.inp_lock, "sctpinp",
 	    RW_RECURSE | RW_DUPOK);
 #endif
-	SCTP_INP_READ_INIT(inp);
+	SCTP_INP_READ_LOCK_INIT(inp);
 	SCTP_ASOC_CREATE_LOCK_INIT(inp);
 	/* lock the new ep */
 	SCTP_INP_WLOCK(inp);
@@ -3973,7 +3969,6 @@ sctp_inpcb_free(struct sctp_inpcb *inp, int immediate, int from)
 				continue;
 			}
 			if ((stcb->asoc.size_on_reasm_queue > 0) ||
-			    (stcb->asoc.control_pdapi) ||
 			    (stcb->asoc.size_on_all_streams > 0) ||
 			    ((so != NULL) && (SCTP_SBAVAIL(&so->so_rcv) > 0))) {
 				/* Left with Data unread */
@@ -4026,7 +4021,6 @@ sctp_inpcb_free(struct sctp_inpcb *inp, int immediate, int from)
 			} else {
 				/* mark into shutdown pending */
 				SCTP_ADD_SUBSTATE(stcb, SCTP_STATE_SHUTDOWN_PENDING);
-				sctp_timer_start(SCTP_TIMER_TYPE_SHUTDOWNGUARD, stcb->sctp_ep, stcb, NULL);
 				if ((*stcb->asoc.ss_functions.sctp_ss_is_user_msgs_incomplete)(stcb, &stcb->asoc)) {
 					SCTP_ADD_SUBSTATE(stcb, SCTP_STATE_PARTIAL_MSG_LEFT);
 				}
@@ -4184,7 +4178,7 @@ sctp_inpcb_free(struct sctp_inpcb *inp, int immediate, int from)
 		TAILQ_REMOVE(&inp->read_queue, sq, next);
 		sctp_free_remote_addr(sq->whoFrom);
 		if (so)
-			so->so_rcv.sb_cc -= sq->length;
+			SCTP_SB_DECR(&so->so_rcv, sq->length);
 		if (sq->data) {
 			sctp_m_freem(sq->data);
 			sq->data = NULL;
@@ -4280,7 +4274,7 @@ sctp_inpcb_free(struct sctp_inpcb *inp, int immediate, int from)
 	INP_LOCK_DESTROY(&inp->ip_inp.inp);
 #endif
 	SCTP_INP_LOCK_DESTROY(inp);
-	SCTP_INP_READ_DESTROY(inp);
+	SCTP_INP_READ_LOCK_DESTROY(inp);
 	SCTP_ASOC_CREATE_LOCK_DESTROY(inp);
 #if !(defined(__APPLE__) && !defined(__Userspace__))
 	SCTP_ZONE_FREE(SCTP_BASE_INFO(ipi_zone_ep), inp);
@@ -5534,28 +5528,19 @@ sctp_free_assoc(struct sctp_inpcb *inp, struct sctp_tcb *stcb, int from_inpcbfre
 				 * will be now.
 				 */
 				if (sq->end_added == 0) {
-					/* Held for PD-API clear that. */
+					/* Held for PD-API, clear that. */
 					sq->pdapi_aborted = 1;
 					sq->held_length = 0;
 					if (sctp_stcb_is_feature_on(inp, stcb, SCTP_PCB_FLAGS_PDAPIEVNT) && (so != NULL)) {
-						/*
-						 * Need to add a PD-API aborted indication.
-						 * Setting the control_pdapi assures that it will
-						 * be added right after this msg.
-						 */
-						uint32_t strseq;
-						stcb->asoc.control_pdapi = sq;
-						strseq = (sq->sinfo_stream << 16) | (sq->mid & 0x0000ffff);
 						sctp_ulp_notify(SCTP_NOTIFY_PARTIAL_DELVIERY_INDICATION,
 						                stcb,
 						                SCTP_PARTIAL_DELIVERY_ABORTED,
-						                (void *)&strseq,
+						                (void *)sq,
 						                SCTP_SO_LOCKED);
-						stcb->asoc.control_pdapi = NULL;
 					}
+					/* Add an end to wake them */
+					sq->end_added = 1;
 				}
-				/* Add an end to wake them */
-				sq->end_added = 1;
 			}
 		}
 		SCTP_INP_READ_UNLOCK(inp);
@@ -6529,6 +6514,13 @@ sctp_netisr_hdlr(struct mbuf *m, uintptr_t source)
 
 #endif
 #endif
+#if defined(__FreeBSD__) && !defined(__Userspace__)
+#define VALIDATE_LOADER_TUNABLE(var_name, prefix)		\
+	if (SCTP_BASE_SYSCTL(var_name) < prefix##_MIN ||	\
+	    SCTP_BASE_SYSCTL(var_name) > prefix##_MAX)		\
+		SCTP_BASE_SYSCTL(var_name) = prefix##_DEFAULT
+
+#endif
 void
 #if defined(__Userspace__)
 sctp_pcb_init(int start_threads)
@@ -6620,6 +6612,9 @@ sctp_pcb_init(void)
 	TUNABLE_INT_FETCH("net.inet.sctp.tcbhashsize", &SCTP_BASE_SYSCTL(sctp_hashtblsize));
 	TUNABLE_INT_FETCH("net.inet.sctp.pcbhashsize", &SCTP_BASE_SYSCTL(sctp_pcbtblsize));
 	TUNABLE_INT_FETCH("net.inet.sctp.chunkscale", &SCTP_BASE_SYSCTL(sctp_chunkscale));
+	VALIDATE_LOADER_TUNABLE(sctp_hashtblsize, SCTPCTL_TCBHASHSIZE);
+	VALIDATE_LOADER_TUNABLE(sctp_pcbtblsize, SCTPCTL_PCBHASHSIZE);
+	VALIDATE_LOADER_TUNABLE(sctp_chunkscale, SCTPCTL_CHUNKSCALE);
 #endif
 	SCTP_BASE_INFO(sctp_asochash) = SCTP_HASH_INIT((SCTP_BASE_SYSCTL(sctp_hashtblsize) * 31),
 						       &SCTP_BASE_INFO(hashasocmark));
@@ -7411,6 +7406,24 @@ sctp_load_addresses_from_init(struct sctp_tcb *stcb, struct mbuf *m,
 		} else if (ptype == SCTP_PRSCTP_SUPPORTED) {
 			/* Peer supports pr-sctp */
 			peer_supports_prsctp = 1;
+		} else if (ptype == SCTP_ZERO_CHECKSUM_ACCEPTABLE) {
+			struct sctp_zero_checksum_acceptable zero_chksum, *zero_chksum_p;
+
+			phdr = sctp_get_next_param(m, offset,
+			                           (struct sctp_paramhdr *)&zero_chksum,
+			                           sizeof(struct sctp_zero_checksum_acceptable));
+			if (phdr != NULL) {
+				/*
+				 * Only send zero checksums if the upper layer
+				 * has enabled the support for the same method
+				 * as allowed by the peer.
+				 */
+				zero_chksum_p = (struct sctp_zero_checksum_acceptable *)phdr;
+				if ((ntohl(zero_chksum_p->edmid) != SCTP_EDMID_NONE) &&
+				    (ntohl(zero_chksum_p->edmid) == stcb->asoc.rcv_edmid)) {
+					stcb->asoc.snd_edmid = stcb->asoc.rcv_edmid;
+				}
+			}
 		} else if (ptype == SCTP_SUPPORTED_CHUNK_EXT) {
 			/* A supported extension chunk */
 			struct sctp_supported_chunk_types_param *pr_supported;
