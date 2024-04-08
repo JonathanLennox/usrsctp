@@ -41,6 +41,7 @@ EXTRA_DIST = \
     discard_server_upcall.c \
     echo_server.c \
     echo_server_upcall.c \
+    echo_server_accept.c \
     client.c \
     client_upcall.c \
     rtcweb.c \
@@ -52,7 +53,9 @@ EXTRA_DIST = \
     test_libmgmt.c \
     http_client.c \
     http_client_upcall.c \
-    st_client.c
+    st_client.c \
+    jitsi_test.c \
+    jitsi_jni.c
 
 noinst_PROGRAMS = \
     test_libmgmt \
@@ -65,6 +68,7 @@ noinst_PROGRAMS = \
     discard_server_upcall \
     echo_server \
     echo_server_upcall \
+    echo_server_accept \
     client \
     client_upcall \
     rtcweb \
@@ -76,7 +80,8 @@ noinst_PROGRAMS = \
     test_libmgmt \
     http_client \
     http_client_upcall \
-    st_client
+    st_client \
+    jitsi_test
 
 test_libmgmt_SOURCES = programs_helper.c test_libmgmt.c
 test_libmgmt_LDADD = ../usrsctplib/libusrsctp.la
@@ -98,6 +103,8 @@ echo_server_SOURCES = programs_helper.c echo_server.c
 echo_server_LDADD = ../usrsctplib/libusrsctp.la
 echo_server_upcall_SOURCES = programs_helper.c echo_server_upcall.c
 echo_server_upcall_LDADD = ../usrsctplib/libusrsctp.la
+echo_server_accept_SOURCES = programs_helper.c echo_server_accept.c
+echo_server_accept_LDADD = ../usrsctplib/libusrsctp.la
 client_SOURCES = programs_helper.c client.c
 client_LDADD = ../usrsctplib/libusrsctp.la
 client_upcall_SOURCES = programs_helper.c client_upcall.c
@@ -120,3 +127,5 @@ http_client_upcall_SOURCES = programs_helper.c http_client_upcall.c
 http_client_upcall_LDADD = ../usrsctplib/libusrsctp.la
 st_client_SOURCES = programs_helper.c st_client.c
 st_client_LDADD = ../usrsctplib/libusrsctp.la
+jitsi_test_SOURCES = jitsi_jni.c jitsi_sctp4j.cxx jitsi_test.c
+jitsi_test_LDADD = ../usrsctplib/libusrsctp.la
