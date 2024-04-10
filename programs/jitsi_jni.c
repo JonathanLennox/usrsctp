@@ -88,7 +88,7 @@ bool JNI_usrsctp_accept(uintptr_t ptr)
     SctpSocket* sctpSocket = (SctpSocket*)ptr;
     struct socket* so;
 
-    if((so = usrsctp_accept(sctpSocket->so, NULL, NULL)) == NULL)
+    if((so = usrsctp_accept(sctpSocket->so, NULL, NULL)) != NULL)
     {
 	perror("usrsctp_accept");
         usrsctp_close(sctpSocket->so);

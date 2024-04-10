@@ -36,22 +36,23 @@
 #include <mutex>
 #include <cstdint>
 #include <atomic>
+#include <iostream>
 #include <usrsctp.h>
 
 #include "jitsi_jni.h"
 
 class SctpDataSender
 {
-  public: virtual int send(std::string data, int length);
+  public: virtual int send(std::string data, int length) = 0;
 
-  public: virtual ~SctpDataSender() = 0;
+  public: virtual ~SctpDataSender() = default;
 };
 
 class SctpDataCallback
 {
   public: virtual void onSctpPacket(std::string data, int sid, int ssn, int tsn, long ppid,
-				    int context, int flags);
-  public: virtual ~SctpDataCallback() = 0;
+				    int context, int flags) = 0;
+  public: virtual ~SctpDataCallback() = default;
 };
 
 class Logger
@@ -115,7 +116,7 @@ class SctpSocket {
      */
   private: bool closed = false;
 
-  protected: Logger logger;
+  public: Logger logger;
     
   public: SctpSocket(std::uintptr_t ptr, long id, Logger lgr);
 
@@ -159,7 +160,7 @@ class SctpSocket {
      * Closes this socket. After call to this method this instance MUST NOT be
      * used.
      */
-  private: void close();
+  public: void close();
 
     /**
      * Call this method to pass network packets received on the link to the
@@ -283,7 +284,7 @@ class Sctp4j {
     /**
      * List of instantiated SctpSockets mapped by native pointer.
      */
-  private: static std::unordered_map<long, SctpSocket*> sockets;
+  private: static std::unordered_map<long, std::shared_ptr<SctpSocket>> sockets;
 
     /**
      * This callback is called by the SCTP stack when it has an incoming packet
@@ -320,7 +321,7 @@ class Sctp4j {
      * @param localSctpPort
      * @return
      */
-  public: static SctpServerSocket* createServerSocket(int localSctpPort, Logger logger);
+  public: static std::shared_ptr<SctpServerSocket> createServerSocket(int localSctpPort, Logger logger);
 
 
     /**
@@ -330,7 +331,7 @@ class Sctp4j {
      * @param localSctpPort
      * @return
      */
-  public: static SctpClientSocket* createClientSocket(int localSctpPort, Logger logger);
+  public: static std::shared_ptr<SctpClientSocket> createClientSocket(int localSctpPort, Logger logger);
 
   private: static std::atomic_long nextId;
 

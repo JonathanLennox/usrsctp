@@ -54,8 +54,9 @@ EXTRA_DIST = \
     http_client.c \
     http_client_upcall.c \
     st_client.c \
-    jitsi_test.c \
-    jitsi_jni.c
+    jitsi_jni.c \
+    jitsi_sctp4j.cxx \
+    jitsi_test.cxx
 
 noinst_PROGRAMS = \
     test_libmgmt \
@@ -127,5 +128,5 @@ http_client_upcall_SOURCES = programs_helper.c http_client_upcall.c
 http_client_upcall_LDADD = ../usrsctplib/libusrsctp.la
 st_client_SOURCES = programs_helper.c st_client.c
 st_client_LDADD = ../usrsctplib/libusrsctp.la
-jitsi_test_SOURCES = jitsi_jni.c jitsi_sctp4j.cxx jitsi_test.c
+jitsi_test_SOURCES = jitsi_jni.c jitsi_sctp4j.cxx jitsi_test.cxx
 jitsi_test_LDADD = ../usrsctplib/libusrsctp.la

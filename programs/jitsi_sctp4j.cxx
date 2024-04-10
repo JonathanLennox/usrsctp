@@ -67,13 +67,13 @@ uintptr_t SctpSocket::lockPtr()
 
     if (closed)
     {
-	throw new IOException("SctpSocket is closed!");
+	throw IOException("SctpSocket is closed!");
     }
     else
     {
 	ptr = this->ptr;
 	if (ptr == 0)
-	    throw new IOException("SctpSocket is closed!");
+	    throw IOException("SctpSocket is closed!");
 	else
 	    ++ptrLockCount;
     }
@@ -99,7 +99,7 @@ void SctpSocket::unlockPtr()
 
 	if (ptrLockCount < 0)
 	{
-	    throw new RuntimeException(
+	    throw RuntimeException(
 		"Unbalanced SctpSocket:unlockPtr() method invocation!");
 	}
         else
@@ -281,7 +281,7 @@ int SctpSocket::onSctpOut(string packet, int tos, int set_df)
     {
 	lockPtr();
     }
-    catch (IOException ioe)
+    catch (IOException& ioe)
     {
 	return ret;
     }
@@ -315,7 +315,7 @@ int SctpSocket::send(string data, bool ordered, int sid, int ppid)
     {
 	lockPtr();
     }
-    catch (IOException ioe)
+    catch (IOException& ioe)
     {
 	return ret;
     }
@@ -364,17 +364,14 @@ bool SctpClientSocket::connect(int remoteSctpPort)
     {
 	lockPtr();
     }
-    catch (IOException ioe)
+    catch (IOException& ioe)
     {
 	return ret;
     }
 
     try
     {
-	if (socketConnected())
-       	{
-	    ret = JNI_usrsctp_connect(ptr, remoteSctpPort);
-	}
+	ret = JNI_usrsctp_connect(ptr, remoteSctpPort);
     }
     catch(...)
     {
@@ -397,7 +394,7 @@ void SctpServerSocket::listen()
     {
 	lockPtr();
     }
-    catch (IOException ioe)
+    catch (IOException& ioe)
     {
 	logger.log() << "Server socket can't listen: " << ioe.message << endl;
 	return;
@@ -463,7 +460,7 @@ bool SctpServerSocket::accept()
 	    // some interval, so we need to check if we're ready here
 	    //TODO: doesn't feel great to invoke this handler in the context
 	    // of the accept call, should we post it elsewhere?
-	    if (isReady())
+	    if (isReady() && eventHandler)
 	    {
 		eventHandler->onReady();
 	    }
@@ -495,7 +492,7 @@ void Sctp4j::init(int port)
     }
 }
 
-std::unordered_map<long, SctpSocket*> Sctp4j::sockets = unordered_map<long, SctpSocket*>();
+std::unordered_map<long, shared_ptr<SctpSocket>> Sctp4j::sockets = unordered_map<long, shared_ptr<SctpSocket>>();
 
 
 /**
@@ -517,7 +514,7 @@ void Sctp4j::onSctpIncomingData(
 {
     try
     {
-	SctpSocket* socket = Sctp4j::sockets.at(socketAddr);
+	auto socket = Sctp4j::sockets.at(socketAddr);
 	socket->onSctpIn(string(data, length), sid, ssn, tsn, ppid, context, flags);
     }
     catch(out_of_range& e)
@@ -533,7 +530,7 @@ int Sctp4j::onOutgoingSctpData(
 {
     try
     {
-	SctpSocket* socket = Sctp4j::sockets.at(socketAddr);
+	auto socket = Sctp4j::sockets.at(socketAddr);
 	return socket->onSctpOut(string((const char*)data, length), tos, set_df);
     }
     catch(out_of_range& e)
@@ -550,18 +547,41 @@ int Sctp4j::onOutgoingSctpData(
  * @param localSctpPort
  * @return
  */
-SctpServerSocket* Sctp4j::createServerSocket(int localSctpPort, Logger logger)
+shared_ptr<SctpServerSocket> Sctp4j::createServerSocket(int localSctpPort, Logger logger)
 {
     long id = nextId++;
     uintptr_t ptr = JNI_usrsctp_socket(localSctpPort, id);
-    if (ptr == 0) {
+    if (ptr == 0)
+    {
 	logger.log() << "Failed to create server socket" << endl;
 	return NULL;
     }
-    SctpServerSocket* socket = new SctpServerSocket(ptr, id, logger);
+    auto socket = shared_ptr<SctpServerSocket>(new SctpServerSocket(ptr, id, logger));
     sockets[id] = socket;
 
     return socket;
 }
+/**
+ * Create an {@link SctpClientSocket} which can be used to connect to an
+ * {@link SctpServerSocket}.
+ *
+ * @param localSctpPort
+ * @return
+ */
+shared_ptr<SctpClientSocket> Sctp4j::createClientSocket(int localSctpPort, Logger logger)
+{
+    long id = nextId++;
+    uintptr_t ptr = JNI_usrsctp_socket(localSctpPort, id);
+    if (ptr == 0)
+    {
+	logger.log() << "Failed to create client socket" << endl;
+	return NULL;
+    }
+    auto socket = shared_ptr<SctpClientSocket>(new SctpClientSocket(ptr, id, logger));
+    sockets[id] = socket;
+
+    return socket;
+}
+
 
 atomic_long Sctp4j::nextId = atomic_long(1);
