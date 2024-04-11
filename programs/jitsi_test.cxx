@@ -41,6 +41,9 @@ class MutualDataSender : public SctpDataSender
 private:
     weak_ptr<SctpSocket> peer;
 
+    static constexpr struct timespec t30ms = {0, 30'000'000};
+
+
 public:
     bool enabled = true;
 
@@ -50,7 +53,10 @@ public:
 	if (enabled) {
 	    auto p = peer.lock();
 	    if (p) {
-		auto thr = thread([=]{p->onConnIn(data, length);});
+		auto thr = thread([=]{
+		    nanosleep(&t30ms, NULL);
+		    p->onConnIn(data, length);
+		});
 		thr.detach();
 	    }
 	    return length;
@@ -78,7 +84,8 @@ int main(void)
 {
     Sctp4j::init(0);
     const struct timespec t100ms = {0, 100'000'000};
-
+    Logger logger("App");
+    
     auto client = Sctp4j::createClientSocket(5000, Logger("Client"));
     auto server = Sctp4j::createServerSocket(5000, Logger("Server"));
 
@@ -101,24 +108,27 @@ int main(void)
 
     nanosleep(&t100ms, NULL);
 
-    client->send("Client Hello", 1, 0, 0);
+    client->send("Client Hello", true, false, 0, 0);
 
     nanosleep(&t100ms, NULL);
 
-    server->send("Server Hello", 1, 0, 0);
+    server->send("Server Hello", true, false, 0, 0);
 
-    sleep(5);
+    sleep(60);
 
     cout << endl;
-    cout << "Closing sockets" << endl;
+    logger.log() << "Client aborting" << endl;
 
-    client->close();
+    client->send("Boom", true, true, 0, 0);
+
+    nanosleep(&t100ms, NULL);
+
     server->close();
 
     client.reset();
     server.reset();
 
-    sleep(30);
+    sleep(60);
     
     return 0;
 }

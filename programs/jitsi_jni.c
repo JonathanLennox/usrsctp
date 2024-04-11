@@ -31,6 +31,8 @@
 /* Simplified code replicating the behavior of Jitsi's JNI code as used in jitsi-videobridge. */
 
 #include <stdarg.h>
+#include <time.h>
+#include <sys/time.h>
 #include "jitsi_jni.h"
 
 typedef struct _SctpSocket
@@ -90,13 +92,13 @@ bool JNI_usrsctp_accept(uintptr_t ptr)
 
     if((so = usrsctp_accept(sctpSocket->so, NULL, NULL)) != NULL)
     {
-	perror("usrsctp_accept");
         usrsctp_close(sctpSocket->so);
         sctpSocket->so = so;
         return true;
     }
     else
     {
+	perror("usrsctp_accept");
         return false;
     }
 }
@@ -160,7 +162,7 @@ void JNI_usrsctp_listen(uintptr_t ptr)
 
 
 int JNI_usrsctp_send(uintptr_t ptr, const char* data, int len,
-        bool ordered, int sid, int ppid)
+		     bool ordered, bool abort, int sid, int ppid)
 {
     SctpSocket* sctpSocket = (SctpSocket*)ptr;
     ssize_t r;  /* returned by usrsctp_sendv */
@@ -172,6 +174,9 @@ int JNI_usrsctp_send(uintptr_t ptr, const char* data, int len,
     sndinfo.snd_flags = 0;
     if (false == ordered)
 	sndinfo.snd_flags |= SCTP_UNORDERED;
+    if (abort) {
+	sndinfo.snd_flags |= SCTP_ABORT;
+    }
     sndinfo.snd_ppid = htonl(ppid);
     sndinfo.snd_sid = sid;
 
@@ -356,6 +361,8 @@ connectSctp(SctpSocket *sctpSocket, int remotePort)
 static void
 debugSctpPrintf(const char *format, ...)
 {
+    char buf[24];
+    printf("%s SCTP: ", isotime(buf));
     va_list args;
     va_start(args, format);
     vprintf(format, args);
@@ -427,4 +434,24 @@ onSctpOutboundPacket
 
     /* FIXME not sure about this value, but an error for now */
     return -1;
+}
+
+char* isotime(char buf[24])
+{
+    struct timeval tv;
+    struct tm tm;
+
+    if (gettimeofday(&tv, NULL) != 0) {
+	strcpy(buf, "-");
+	return buf;
+    }
+    if (gmtime_r(&tv.tv_sec, &tm) == NULL) {
+	strcpy(buf, "-");
+	return buf;
+    }
+    size_t len = strftime(buf, 24, "%Y-%m-%d %H:%M:%S", &tm);
+    if (len < 24) {
+	snprintf(buf + len, 24 - len, ".%03ld", (long)(tv.tv_usec / 1000));
+    }
+    return buf;
 }

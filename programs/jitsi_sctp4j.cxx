@@ -36,6 +36,12 @@
 
 using namespace std;
 
+std::ostream& Logger::log()
+{
+    char buf[24];
+    return std::cout << isotime(buf) << " " << prefix << ": ";
+}
+
 class Exception {
 public:
     string message;
@@ -307,7 +313,7 @@ int SctpSocket::onSctpOut(string packet, int tos, int set_df)
  * Send SCTP app data through the stack and out
  * @return the number of bytes sent or -1 on error
  */
-int SctpSocket::send(string data, bool ordered, int sid, int ppid)
+int SctpSocket::send(string data, bool ordered, bool abort, int sid, int ppid)
 {
     int ret = -1;
 
@@ -328,7 +334,7 @@ int SctpSocket::send(string data, bool ordered, int sid, int ppid)
 		ptr,
 		data.data(),
 		data.length(),
-		ordered, sid, ppid);
+		ordered, abort, sid, ppid);
 	}
     }
     catch(...)

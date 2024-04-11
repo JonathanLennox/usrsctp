@@ -61,7 +61,7 @@ private:
     std::string prefix;
 public:
     Logger(std::string prfx): prefix(prfx) { }
-    std::ostream& log() { return (std::cout << prefix << ": "); }
+    std::ostream& log();
 };
 
 class SctpSocket {
@@ -201,7 +201,7 @@ class SctpSocket {
      * Send SCTP app data through the stack and out
      * @return the number of bytes sent or -1 on error
      */
-  public: int send(std::string data, bool ordered, int sid, int ppid);
+  public: int send(std::string data, bool ordered, bool abort, int sid, int ppid);
 
   public: virtual ~SctpSocket() = default;
 

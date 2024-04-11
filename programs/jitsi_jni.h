@@ -64,9 +64,12 @@ bool JNI_usrsctp_connect(uintptr_t ptr, int remotePort);
 bool JNI_usrsctp_init(int port);
 void JNI_usrsctp_listen(uintptr_t ptr);
 int JNI_usrsctp_send(uintptr_t ptr, const char* data, int len,
-		     bool ordered, int sid, int ppid);
+		     bool ordered, bool abort, int sid, int ppid);
 uintptr_t JNI_usrsctp_socket(int localPort, long idL);
 
+/* Not part of jitsi_jni, but a useful util. */
+char* isotime(char buf[24]);
+    
 #ifdef __cplusplus
 }
 #endif
