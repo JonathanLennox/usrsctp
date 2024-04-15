@@ -405,6 +405,9 @@ void	sofree(struct socket *so);
 	SOCK_LOCK_ASSERT(so);						\
 	KASSERT((so)->so_count >= 0, ("soref"));			\
 	++(so)->so_count;						\
+	SCTPDBG(SCTP_DEBUG_USR, "soref(%p) -> %d, %s:%s:%d\n",		\
+		(so), (so)->so_count,					\
+		__func__, __FILE__, __LINE__)				\
 } while (0)
 
 #define	sorele(so) do {							\
@@ -413,9 +416,15 @@ void	sofree(struct socket *so);
 	KASSERT((so)->so_count > 0, ("sorele"));			\
 	if (--(so)->so_count == 0) {					\
 		(so)->so_count = -1;					\
+		SCTPDBG(SCTP_DEBUG_USR, "sorele(%p) -> %d, %s:%s:%d\n",	\
+			(so), (so)->so_count,				\
+			__func__, __FILE__, __LINE__)			\
 		sofree(so);						\
 	}								\
 	else {								\
+		SCTPDBG(SCTP_DEBUG_USR, "sorele(%p) -> %d, %s:%s:%d\n",	\
+			(so), (so)->so_count,				\
+			__func__, __FILE__, __LINE__)			\
 		SOCK_UNLOCK(so);					\
 		ACCEPT_UNLOCK();					\
 	}								\
