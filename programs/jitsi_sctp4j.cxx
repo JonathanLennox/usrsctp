@@ -486,16 +486,21 @@ bool SctpServerSocket::accept()
 
 bool Sctp4j::initialized = false;
 
-void Sctp4j::init(int port)
+void Sctp4j::init(int port, uint32_t sctp_debug_mask)
 {
     if (!initialized)
     {
-	JNI_usrsctp_init(port);
+	JNI_usrsctp_init(port, sctp_debug_mask);
 	initialized = true;
 
 	incomingSctpDataHandler = onSctpIncomingData;
 	outgoingSctpDataHandler = onOutgoingSctpData;
     }
+}
+
+void Sctp4j::init(int port)
+{
+    init(port, 0);
 }
 
 std::unordered_map<long, shared_ptr<SctpSocket>> Sctp4j::sockets = unordered_map<long, shared_ptr<SctpSocket>>();

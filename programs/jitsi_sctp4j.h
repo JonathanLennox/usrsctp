@@ -272,6 +272,7 @@ class SctpClientSocket: public SctpSocket
 class Sctp4j {
  private: static bool initialized;
 
+ public: static void init(int port, uint32_t sctpDebugMask);
  public: static void init(int port);
 
     /**

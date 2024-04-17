@@ -61,7 +61,7 @@ void JNI_on_network_in(uintptr_t ptr, const char* pkt, int len);
 bool JNI_usrsctp_accept(uintptr_t ptr);
 void JNI_usrsctp_close(uintptr_t ptr);
 bool JNI_usrsctp_connect(uintptr_t ptr, int remotePort);
-bool JNI_usrsctp_init(int port);
+bool JNI_usrsctp_init(int port, uint32_t sctp_debug_mask);
 void JNI_usrsctp_listen(uintptr_t ptr);
 int JNI_usrsctp_send(uintptr_t ptr, const char* data, int len,
 		     bool ordered, bool abort, int sid, int ppid);

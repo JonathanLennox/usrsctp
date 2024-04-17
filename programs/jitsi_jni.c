@@ -120,7 +120,7 @@ bool JNI_usrsctp_connect(uintptr_t ptr, int remotePort)
             : false;
 }
 
-bool JNI_usrsctp_init(int port)
+bool JNI_usrsctp_init(int port, uint32_t sctp_debug_mask)
 {
     /*
      * First argument is udp_encapsulation_port which is not relevant to our
@@ -129,12 +129,8 @@ bool JNI_usrsctp_init(int port)
     printf("org_jitsi_modified_sctp4j_SctpJni.c calling init\n");
     usrsctp_init((uint16_t) port, onSctpOutboundPacket, debugSctpPrintf);
 
-    // Note: this code MUST be called after the call to usrsctp_init, above, as part of that
-    // call flow sets the debug to the default level (off)
-#ifdef SCTP_DEBUG
-    printf("=====>: org_jitsi_modified_sctp4j_SctpJni.c setting SCTP_DEBUG_ALL\n");
-    usrsctp_sysctl_set_sctp_debug_on(SCTP_DEBUG_ALL);
-#endif
+    printf("=====>: org_jitsi_modified_sctp4j_SctpJni.c setting debug mask %#x\n", sctp_debug_mask);
+    usrsctp_sysctl_set_sctp_debug_on(sctp_debug_mask);
 
     /* TODO(ldixon) Consider turning this on/off. */
     usrsctp_sysctl_set_sctp_ecn_enable(0);
