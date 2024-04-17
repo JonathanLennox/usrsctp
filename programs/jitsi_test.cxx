@@ -54,7 +54,6 @@ public:
 	    auto p = peer.lock();
 	    if (p) {
 		auto thr = thread([=]{
-		    nanosleep(&t30ms, NULL);
 		    p->onConnIn(data, length);
 		});
 		thr.detach();
@@ -79,12 +78,10 @@ public:
     }
 };
 
-
-int main(void)
+void run_test(Logger& logger, int close_ns)
 {
-    Sctp4j::init(0);
-    const struct timespec t100ms = {0, 100'000'000};
-    Logger logger("App");
+    const struct timespec t10ms = {0, 10'000'000};
+    const struct timespec close_delay = {0, close_ns};
     
     auto client = Sctp4j::createClientSocket(5000, Logger("Client"));
     auto server = Sctp4j::createServerSocket(5000, Logger("Server"));
@@ -100,35 +97,47 @@ int main(void)
 
     for (int i = 0; i < 100; i++) {
 	if (server->accept()) {
-	    server->logger.log() << "Accepted" << endl;
+	    logger.log() << "Server accepted" << endl;
 	    break;
 	}
-	nanosleep(&t100ms, NULL);
+	nanosleep(&t10ms, NULL);
     }
 
-    nanosleep(&t100ms, NULL);
+    nanosleep(&t10ms, NULL);
 
     client->send("Client Hello", true, false, 0, 0);
 
-    nanosleep(&t100ms, NULL);
+    nanosleep(&t10ms, NULL);
 
-    server->send("Server Hello", true, false, 0, 0);
+    client->send("Client Hello Again", true, false, 0, 0);
 
-    sleep(60);
+    nanosleep(&close_delay, NULL);
 
-    cout << endl;
-    logger.log() << "Client aborting" << endl;
-
-    client->send("Boom", true, true, 0, 0);
-
-    nanosleep(&t100ms, NULL);
-
+    logger.log() << "Closing server" << endl;
+    
     server->close();
+    
+    nanosleep(&t10ms, NULL);
+
+    client->close();
 
     client.reset();
     server.reset();
+}
 
-    sleep(60);
+int main(void)
+{
+    Sctp4j::init(0, 0x00000002 /* SCTP_DEBUG_TIMER2 */);
+    Logger logger("App");
+
+    for (int delay = 197'000'000; delay < 200'000'000; delay += 100'000) {
+	logger.log() << "Running with delay " << delay << "ns" << endl;
+	cout << endl;
+	for (int repeat = 0; repeat < 10; repeat++) {
+	    run_test(logger, delay);
+	    cout << endl;
+	}
+    }
     
     return 0;
 }
