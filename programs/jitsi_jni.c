@@ -57,6 +57,9 @@ connectSctp(SctpSocket *sctpSocket, int remotePort);
 static void
 debugSctpPrintf(const char *format, ...);
 
+static void
+sctpPError(const char* message);
+
 void
 getSctpSockAddr(struct sockaddr_conn *sconn, void *addr, int port);
 
@@ -98,7 +101,7 @@ bool JNI_usrsctp_accept(uintptr_t ptr)
     }
     else
     {
-	perror("usrsctp_accept");
+	sctpPError("usrsctp_accept");
         return false;
     }
 }
@@ -149,11 +152,11 @@ void JNI_usrsctp_listen(uintptr_t ptr)
     if (usrsctp_bind(sctpSocket->so, (struct sockaddr *) psconn, sizeof(sconn))
             < 0)
     {
-        perror("usrsctp_bind");
+        sctpPError("usrsctp_bind");
     }
     /* Make server side passive. */
     if (usrsctp_listen(sctpSocket->so, 1) < 0)
-        perror("usrsctp_listen");
+        sctpPError("usrsctp_listen");
 }
 
 
@@ -188,7 +191,7 @@ int JNI_usrsctp_send(uintptr_t ptr, const char* data, int len,
 	    SCTP_SENDV_SNDINFO,
 	    /* flags */ 0);
     if (r < 0)
-        perror("Sctp send error: ");
+        sctpPError("Sctp send error: ");
     return (int)r;
 }
 
@@ -208,7 +211,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
     sctpSocket = malloc(sizeof(SctpSocket));
     if (sctpSocket == NULL)
     {
-        perror("Out of memory!");
+        sctpPError("Out of memory!");
         return 0;
     }
 
@@ -227,7 +230,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
                 id);
     if (so == NULL)
     {
-        perror("usrsctp_socket");
+        sctpPError("usrsctp_socket");
         free(sctpSocket);
         return 0;
     }
@@ -236,7 +239,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
     // the thread waiting for the socket operation to complete.
     if (usrsctp_set_non_blocking(so, 1) < 0)
     {
-        perror("Failed to set SCTP to non blocking.");
+        sctpPError("Failed to set SCTP to non blocking.");
         free(sctpSocket);
         return 0;
     }
@@ -249,7 +252,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
     if (usrsctp_setsockopt(so, SOL_SOCKET, SO_LINGER, &linger_opt,
                            sizeof(linger_opt)))
     {
-        perror("Failed to set SO_LINGER.");
+        sctpPError("Failed to set SO_LINGER.");
         free(sctpSocket);
         return 0;
     }
@@ -260,7 +263,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
     if (usrsctp_setsockopt(so, IPPROTO_SCTP, SCTP_ENABLE_STREAM_RESET,
                            &stream_rst, sizeof(stream_rst)))
     {
-        perror("Failed to set SCTP_ENABLE_STREAM_RESET.");
+        sctpPError("Failed to set SCTP_ENABLE_STREAM_RESET.");
         free(sctpSocket);
         return 0;
     }
@@ -269,7 +272,7 @@ uintptr_t JNI_usrsctp_socket(int localPort, long idL)
     if (usrsctp_setsockopt(so, IPPROTO_SCTP, SCTP_NODELAY, &nodelay,
                            sizeof(nodelay)))
     {
-        perror("Failed to set SCTP_NODELAY.");
+        sctpPError("Failed to set SCTP_NODELAY.");
         free(sctpSocket);
         return 0;
     }
@@ -338,7 +341,7 @@ connectSctp(SctpSocket *sctpSocket, int remotePort)
     getSctpSockAddr(psconn, sctpSocket->id, sctpSocket->localPort);
     if (usrsctp_bind(so, (struct sockaddr *) psconn, sizeof(sconn)) < 0)
     {
-        perror("usrsctp_bind");
+        sctpPError("usrsctp_bind");
         return 0;
     }
 
@@ -347,7 +350,7 @@ connectSctp(SctpSocket *sctpSocket, int remotePort)
         = usrsctp_connect(so, (struct sockaddr *) psconn, sizeof(sconn));
     if (connect_result < 0 && errno != EINPROGRESS)
     {
-        perror("usrsctp_connect");
+        sctpPError("usrsctp_connect");
         return 0;
     }
 
@@ -363,6 +366,12 @@ debugSctpPrintf(const char *format, ...)
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
+}
+
+static void
+sctpPError(const char* message)
+{
+    debugSctpPrintf("ERROR: %s: %s\n", message, strerror(errno));
 }
 
 void
