@@ -28,9 +28,16 @@
  * SUCH DAMAGE.
  */
 
+const int NUM_HOGS = 8;
+const int NUM_REPEATS = 1000;
+
 #include <unistd.h>
 #include <time.h>
 #include <future>
+#include <vector>
+#include <cmath>
+#include <functional>
+#include <sstream>
 
 #include "jitsi_sctp4j.h"
 
@@ -105,6 +112,7 @@ void run_test(Logger& logger, int close_ns)
 
     nanosleep(&t10ms, NULL);
 
+    logger.log() << "Sending data from client" << endl;
     client->send("Client Hello", true, false, 0, 0);
 
     nanosleep(&t10ms, NULL);
@@ -125,19 +133,44 @@ void run_test(Logger& logger, int close_ns)
     server.reset();
 }
 
+static atomic<bool> done = false;
+
+static void hog(void)
+{
+    unsigned int seed = (unsigned int)time(NULL);
+    while (!done) {
+	sqrt(rand_r(&seed));
+    }
+}
+
 int main(void)
 {
     Sctp4j::init(0, 0x00000002 /* SCTP_DEBUG_TIMER2 */);
     Logger logger("App");
 
-    for (int delay = 197'000'000; delay < 200'000'000; delay += 100'000) {
+    int base_delay = 200'000'000;
+    int delay_variance = 10'000'000;
+
+    srand48(time(NULL));
+    srand(time(NULL));
+
+    auto hogs = vector<thread>();
+    for (int i = 0; i < NUM_HOGS; i++) {
+	hogs.push_back(thread(hog));
+    }
+
+    for (int repeat = 0; repeat < NUM_REPEATS; repeat++) {
+	int delay = base_delay + (drand48() * 2 - 1) * delay_variance;
 	logger.log() << "Running with delay " << delay << "ns" << endl;
 	cout << endl;
-	for (int repeat = 0; repeat < 10; repeat++) {
-	    run_test(logger, delay);
-	    cout << endl;
-	}
+	run_test(logger, delay);
     }
+
+done = true;
+
+    for_each(hogs.begin(), hogs.end(), mem_fn(&thread::join));
     
+    usrsctp_finish();
+
     return 0;
 }
