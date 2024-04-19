@@ -28,7 +28,7 @@
  * SUCH DAMAGE.
  */
 
-const int NUM_HOGS = 8;
+const int NUM_HOGS = 16;
 const int NUM_REPEATS = 1000;
 
 #include <unistd.h>
@@ -37,7 +37,7 @@ const int NUM_REPEATS = 1000;
 #include <vector>
 #include <cmath>
 #include <functional>
-#include <sstream>
+#include <algorithm>
 
 #include "jitsi_sctp4j.h"
 
@@ -133,7 +133,7 @@ void run_test(Logger& logger, int close_ns)
     server.reset();
 }
 
-static atomic<bool> done = false;
+static atomic<bool> done(false);
 
 static void hog(void)
 {
