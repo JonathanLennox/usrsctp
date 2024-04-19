@@ -82,7 +82,8 @@ noinst_PROGRAMS = \
     http_client \
     http_client_upcall \
     st_client \
-    jitsi_test
+    jitsi_test \
+    crash_repro
 
 test_libmgmt_SOURCES = programs_helper.c test_libmgmt.c
 test_libmgmt_LDADD = ../usrsctplib/libusrsctp.la
@@ -130,3 +131,5 @@ st_client_SOURCES = programs_helper.c st_client.c
 st_client_LDADD = ../usrsctplib/libusrsctp.la
 jitsi_test_SOURCES = jitsi_jni.c jitsi_sctp4j.cxx jitsi_test.cxx
 jitsi_test_LDADD = ../usrsctplib/libusrsctp.la
+crash_repro_SOURCES = crash_repro.c
+crash_repro_LDADD = ../usrsctplib/libusrsctp.la -lm
