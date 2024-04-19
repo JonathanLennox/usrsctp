@@ -595,4 +595,4 @@ shared_ptr<SctpClientSocket> Sctp4j::createClientSocket(int localSctpPort, Logge
 }
 
 
-atomic_long Sctp4j::nextId = atomic_long(1);
+atomic_long Sctp4j::nextId(1);
