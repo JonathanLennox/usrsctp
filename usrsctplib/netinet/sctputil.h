@@ -371,5 +371,12 @@ uint32_t sctp_msecs_to_ticks(uint32_t);
 uint32_t sctp_ticks_to_secs(uint32_t);
 uint32_t sctp_secs_to_ticks(uint32_t);
 
+#if defined(__Userspace__)
+void sctp_upcall_socket(struct sctp_tcb *);
+struct socket* sctp_get_upcall_socket(struct sctp_tcb *);
+struct socket* sctp_get_upcall_socket_or_head(struct sctp_tcb * stcb);
+void sctp_do_upcall_socket(struct socket *);
+#endif
+
 #endif				/* _KERNEL */
 #endif
